@@ -67,46 +67,44 @@ function counterbalance_map(counterbalance_filename)
 	return (avail_actions, intervention)
 end
 
+function read_data(filename, counterbalance_filename)
 
-test_reward_v = ["A", "B", "", "B", "", "A", "", "A", "B", "A", "B", "", "B", "", "A", "",
-				"A", "B", "A", "B", "", "B", "", "A", "", "A", "B", "A", "B", ""]
+	df = CSV.File(filename) |> DataFrame
 
-filename = "./ER17_FG7142_trials.csv"
+	df.N = map(x -> parse(Int64, x[findlast('_', x)+1 : end]), df.ID)
 
-df = CSV.File(filename) |> DataFrame
+	(avail_actions_f, interv_f) = counterbalance_map("./ER17_FG7142_counterbalance.csv")
 
-df.N = map(x -> parse(Int64, x[findlast('_', x)+1 : end]), df.ID)
+	ID_v = unique(df.ID)
+	day_v = unique(df.Day)
+	week_v = unique(df.Week)
 
-(avail_actions_f, interv_f) = counterbalance_map("./ER17_FG7142_counterbalance.csv")
+	n_sessions = length(unique(map((x,y) -> (x,y), df.Day, df.Week)))
 
-ID_v = unique(df.ID)
-day_v = unique(df.Day)
-week_v = unique(df.Week)
+	avail_actions_m = Matrix{Array{Int64,1}}(undef, length(ID_v), n_sessions)
+	interv_m = Matrix{Int64}(undef, length(ID_v), n_sessions)
+	R_m = Matrix{Array{Float64,1}}(undef, length(ID_v), n_sessions)
 
-n_sessions = length(unique(map((x,y) -> (x,y), df.Day, df.Week)))
+	for ID in ID_v
+		for day in day_v
+			for week in week_v
 
-avail_actions_m = Matrix{Array{Int64,1}}(undef, length(ID_v), n_sessions)
-interv_m = Matrix{Int64}(undef, length(ID_v), n_sessions)
-R_m = Matrix{Array{Float64,1}}(undef, length(ID_v), n_sessions)
+				ID_number = parse(Int64, ID[findlast('_', ID)+1 : end])
+				session = map_session(day, week)
 
-for ID in ID_v
-	for day in day_v
-		for week in week_v
+				avail_actions_m[ID_number, session] = avail_actions_f(ID, day, week)
 
-			ID_number = parse(Int64, ID[findlast('_', ID)+1 : end])
-			session = map_session(day, week)
+				interv_m[ID_number, session] = interv_f(ID, day, week)
 
-			avail_actions_m[ID_number, session] = avail_actions_f(ID, day, week)
+				R_m[ID_number, session] = map_reward(day, 
+													df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
 
-			interv_m[ID_number, session] = interv_f(ID, day, week)
-
-			R_m[ID_number, session] = map_reward(day, 
-												df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
-
+			end
 		end
 	end
-end
 
+	return ABT_t(n_sessions, length(ID_v), length(unique(interv_m)), )
+end
 
 
 

@@ -1,11 +1,3 @@
-struct lapse_t
-	α_ε::Float64
-	β_ε::Float64
-	α_η::Float64
-	β_η::Float64
-	ε_v::Array{Float64, 1}
-	η_v::Array{Float64, 1}
-end
 
 P_softmax(β, r_v) = exp.(β * r_v) ./ sum(exp.(β * r_v))
 	
@@ -31,34 +23,36 @@ end
 
 	s_upper = 30.0 
 
-	μ_ε ~ Normal(0,1)
-	σ_ε ~ truncated(Cauchy(0,5), 0, Inf)
+	μ_ε_v ~ filldist(Normal(0,1), data.n_interv)
+	σ_ε_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
 
-	μ_η ~ Normal(0,1)
-	σ_η ~ truncated(Cauchy(0,5), 0, Inf)
+	μ_η_v ~ filldist(Normal(0,1), data.n_interv)
+	σ_η_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
 
-	μ_s ~ Normal(0,1)
-	σ_s ~ truncated(Cauchy(0,5), 0, Inf)
+	μ_s_v ~ filldist(Normal(0,1), data.n_interv)
+	σ_s_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
 
-	ε_norm_v ~ filldist(Normal(0,1), n_subjects)
-	η_norm_v ~ filldist(Normal(0,1), n_subjects)
-	s_norm_v ~ filldist(Normal(0,1), n_subjects)
+	ε_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
+	η_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
+	s_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
 
-	ε_v = cdata.(Normal(0,1), μ_ε .+ σ_ε * ε_norm_v)
-	η_v = cdata.(Normal(0,1), μ_η .+ σ_η * η_norm_v)
-	s_v = cdata.(Normal(0,1), μ_s .+ σ_s * s_norm_v) * s_upper
+	ε_m = cdf.(Normal(0,1), μ_ε_v .+ ε_norm_m * σ_ε_v)
+	η_m = cdf.(Normal(0,1), μ_η_v .+ η_norm_m * σ_η_v)
+	s_m = cdf.(Normal(0,1), μ_s_v .+ s_norm_m * σ_s_v) * s_upper
 
 	for subject = 1 : n_subjects
 
 		r_v = zeros(T, Int(3*data.n_sessions / 5))
 
-		ε = ε_v[subject]
-		η = η_v[subject]
-		s = s_v[subject]
-
 		for session = 1 : n_sessions
 
 			avail_actions_v = avail_actions_m[subject, session]
+
+			interv = data.interv_m[subject, session]
+
+			ε = ε_m[subject, interv]
+			η = η_m[subject, interv]
+			s = s_m[subject, interv]
 
 			for trial = 1 : n_trials
 
@@ -76,22 +70,5 @@ end
 	return (action_m, μ_ε, σ_ε, μ_η, σ_η, μ_s, σ_s, ε_v, η_v, s_v)
 end
 
-function run_lapse()
+run_lapse(action_m, data::ABT_t) = sample(lapse_model(action_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
 
-	n_sessions = 5
-	n_subjects = 20
-	n_trials = 20
-
-	avail_actions_m = repeat([[1,3], [2,3], [1,3], [2,3], [1,2]], 1, n_subjects)
-
-	r_env_v = [1.0, 1.0, 0.0]
-
-	prior = lapse_model(missing, avail_actions_m, r_env_v, n_sessions, n_subjects, n_trials)
-
-	(action_m, s_v) = prior()
-	println(s_v)
-	chn = sample(lapse_model(action_m, avail_actions_m, r_env_v, n_sessions, n_subjects, n_trials), 
-				HMC(0.01, 20), MCMCThreads(), 2000, 4)
-
-	return chn
-end
