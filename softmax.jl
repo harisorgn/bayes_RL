@@ -15,11 +15,11 @@
 	μ_η_v ~ filldist(Normal(0,1), data.n_interv)
 	σ_η_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
 
-	β_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
-	η_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
+	β_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
+	η_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
 
-	β_m = cdf.(Normal(0,1), μ_β_v .+ β_norm_m * σ_β_v) * β_upper
-	η_m = cdf.(Normal(0,1), μ_η_v .+ η_norm_v * σ_η_v)
+	β_m = cdf.(Normal(0,1), μ_β_v .+ β_norm_m .* σ_β_v) .* β_upper
+	η_m = cdf.(Normal(0,1), μ_η_v .+ η_norm_m .* σ_η_v)
 
 	for subject = 1 : data.n_subjects
 
@@ -31,21 +31,21 @@
 
 			interv = data.interv_m[subject, session]
 
-			β = β_m[subject, interv]
-			η = η_m[subject, interv]
+			β = β_m[interv, subject]
+			η = η_m[interv, subject]
 
 			for trial = 1 : data.trial_m[subject, session]
-				
+
 				action_m[subject, session][trial] ~ BinomialLogit(1, β * (r_v[avail_actions_v[2]] - r_v[avail_actions_v[1]]))
-				
+
 				action = avail_actions_v[action_m[subject, session][trial] + 1]
 
 				r_v[action] += η * (data.R_m[subject, session][trial] - r_v[action])
 			end
-		end	
+		end
 	end
 
-	return (action_m, μ_β, σ_β, μ_η, σ_η, β_v, η_v)
+	return action_m
 end
 
 run_softmax(action_m, data::ABT_t) = sample(softmax_model(action_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)

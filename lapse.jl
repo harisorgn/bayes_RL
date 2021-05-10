@@ -32,42 +32,42 @@ end
 	μ_s_v ~ filldist(Normal(0,1), data.n_interv)
 	σ_s_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
 
-	ε_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
-	η_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
-	s_norm_m ~ filldist(Normal(0,1), data.n_subjects, data.n_interv)
+	ε_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
+	η_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
+	s_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
 
-	ε_m = cdf.(Normal(0,1), μ_ε_v .+ ε_norm_m * σ_ε_v)
-	η_m = cdf.(Normal(0,1), μ_η_v .+ η_norm_m * σ_η_v)
-	s_m = cdf.(Normal(0,1), μ_s_v .+ s_norm_m * σ_s_v) * s_upper
+	ε_m = cdf.(Normal(0,1), μ_ε_v .+ ε_norm_m .* σ_ε_v)
+	η_m = cdf.(Normal(0,1), μ_η_v .+ η_norm_m .* σ_η_v)
+	s_m = cdf.(Normal(0,1), μ_s_v .+ s_norm_m .* σ_s_v) * s_upper
 
-	for subject = 1 : n_subjects
+	for subject = 1 : data.n_subjects
 
-		r_v = zeros(T, Int(3*data.n_sessions / 5))
+		r_v = zeros(T, 3*data.n_interv)
 
-		for session = 1 : n_sessions
+		for session = 1 : data.n_sessions
 
-			avail_actions_v = avail_actions_m[subject, session]
+			avail_actions_v = data.avail_actions_m[subject, session]
 
 			interv = data.interv_m[subject, session]
 
-			ε = ε_m[subject, interv]
-			η = η_m[subject, interv]
-			s = s_m[subject, interv]
+			ε = ε_m[interv, subject]
+			η = η_m[interv, subject]
+			s = s_m[interv, subject]
 
-			for trial = 1 : n_trials
+			for trial = 1 : data.trial_m[subject, session]
 
 				P_v = P_lapse(ε, r_v[avail_actions_v])
 
-				action_m[subject, session][trial] ~ Categorical(P_v)
+				action_m[subject, session][trial] ~ Binomial(1, P_v[2])
 
-				action = avail_actions_v[action_m[subject, session][trial]]
+				action = avail_actions_v[action_m[subject, session][trial] + 1]
 
 				r_v[action] += η * (s * data.R_m[subject, session][trial] - r_v[action])
 			end
 		end
 	end
 
-	return (action_m, μ_ε, σ_ε, μ_η, σ_η, μ_s, σ_s, ε_v, η_v, s_v)
+	return action_m
 end
 
 run_lapse(action_m, data::ABT_t) = sample(lapse_model(action_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
