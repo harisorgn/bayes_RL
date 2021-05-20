@@ -17,24 +17,28 @@ end
 	
 	if action_m === missing
 		action_m = Matrix{Array{Int64,1}}(undef, data.n_subjects, data.n_sessions)
-		action_m = [ [-1 for _ = 1:data.n_trials] for _ = 1:data.n_subjects for _ = 1:data.n_sessions ]
-		action_m = reshape(action_m, (data.n_subjects, data.n_sessions))
+
+		for subject = 1 : data.n_subjects
+			for session = 1 : data.n_sessions
+				action_m[subject, session] = [-1 for _ = 1 : data.trial_m[subject, session]]
+			end
+		end
 	end
 
 	s_upper = 30.0 
 
-	μ_ε_v ~ filldist(Normal(0,1), data.n_interv)
-	σ_ε_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
+	μ_ε_v ~ filldist(Normal(0,1), data.n_groups)
+	σ_ε_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_groups)
 
-	μ_η_v ~ filldist(Normal(0,1), data.n_interv)
-	σ_η_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
+	μ_η_v ~ filldist(Normal(0,1), data.n_groups)
+	σ_η_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_groups)
 
-	μ_s_v ~ filldist(Normal(0,1), data.n_interv)
-	σ_s_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_interv)
+	μ_s_v ~ filldist(Normal(0,1), data.n_groups)
+	σ_s_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_groups)
 
-	ε_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
-	η_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
-	s_norm_m ~ filldist(Normal(0,1), data.n_interv, data.n_subjects)
+	ε_norm_m ~ filldist(Normal(0,1), data.n_groups, data.n_subjects)
+	η_norm_m ~ filldist(Normal(0,1), data.n_groups, data.n_subjects)
+	s_norm_m ~ filldist(Normal(0,1), data.n_groups, data.n_subjects)
 
 	ε_m = cdf.(Normal(0,1), μ_ε_v .+ ε_norm_m .* σ_ε_v)
 	η_m = cdf.(Normal(0,1), μ_η_v .+ η_norm_m .* σ_η_v)
@@ -42,17 +46,17 @@ end
 
 	for subject = 1 : data.n_subjects
 
-		r_v = zeros(T, 3*data.n_interv)
+		r_v = zeros(T, Int(3*data.n_sessions / 5))
 
 		for session = 1 : data.n_sessions
 
 			avail_actions_v = data.avail_actions_m[subject, session]
 
-			interv = data.interv_m[subject, session]
+			group = data.group_m[subject, session]
 
-			ε = ε_m[interv, subject]
-			η = η_m[interv, subject]
-			s = s_m[interv, subject]
+			ε = ε_m[group, subject]
+			η = η_m[group, subject]
+			s = s_m[group, subject]
 
 			for trial = 1 : data.trial_m[subject, session]
 
