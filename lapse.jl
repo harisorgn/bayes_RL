@@ -13,14 +13,14 @@ function P_lapse(ε, r_v)
 	end
 end
 
-@model function lapse_model(action_m, data::ABT_t, ::Type{T} = Float64) where {T <: Real}
+@model function lapse_model(choice_m, data::ABT_t, ::Type{T} = Float64) where {T <: Real}
 	
-	if action_m === missing
-		action_m = Matrix{Array{Int64,1}}(undef, data.n_subjects, data.n_sessions)
+	if choice_m === missing
+		choice_m = Matrix{Array{Int64,1}}(undef, data.n_subjects, data.n_sessions)
 
 		for subject = 1 : data.n_subjects
 			for session = 1 : data.n_sessions
-				action_m[subject, session] = [-1 for _ = 1 : data.trial_m[subject, session]]
+				choice_m[subject, session] = [-1 for _ = 1 : data.trial_m[subject, session]]
 			end
 		end
 	end
@@ -62,17 +62,17 @@ end
 
 				P_v = P_lapse(ε, r_v[avail_actions_v])
 
-				action_m[subject, session][trial] ~ Binomial(1, P_v[2])
+				choice_m[subject, session][trial] ~ Binomial(1, P_v[2])
 
-				action = avail_actions_v[action_m[subject, session][trial] + 1]
+				action = avail_actions_v[choice_m[subject, session][trial] + 1]
 
 				r_v[action] += η * (s * data.R_m[subject, session][trial] - r_v[action])
 			end
 		end
 	end
 
-	return action_m
+	return choice_m
 end
 
-run_lapse(action_m, data::ABT_t) = sample(lapse_model(action_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
+run_lapse(choice_m, data::ABT_t) = sample(lapse_model(choice_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
 

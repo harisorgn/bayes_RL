@@ -11,7 +11,7 @@ using MCMCChains, ArviZ, Serialization, PyPlot, Random, Turing, LinearAlgebra
 include("task_types.jl")
 
 # ╔═╡ 1a862514-dca4-4eb7-9236-e80f2a27eef4
-include("softmax.jl")
+include("lapse.jl")
 
 # ╔═╡ a05e60a2-d069-46db-bf8e-9f2feb06e28b
 include("read_abt.jl")
@@ -20,7 +20,7 @@ include("read_abt.jl")
 ArviZ.use_style("arviz-darkgrid")
 
 # ╔═╡ 4d6eed54-2db2-41ce-853e-6b2304b7d5d8
-chn = deserialize("chn_softmax_FG.jls");
+chn = deserialize("chn_lapse_FG.jls");
 
 # ╔═╡ 0f7b1b7d-d1ae-412d-b4f6-fb0cd7b11c19
 begin
@@ -32,13 +32,13 @@ begin
 
 	(action_m, data) = read_data(file_v, cb_file_v);
 	
-	mdl = softmax_model(action_m, data);
+	mdl = lapse_model(action_m, data);
 	
 	prior = sample(mdl, Prior(), 1000; progress=false);
 end
 
 # ╔═╡ cffce24f-80d9-49d4-8a37-c33432b5e147
-model_predict = softmax_model(missing, data);
+model_predict = lapse_model(missing, data);
 
 # ╔═╡ c2c65caf-8153-4c27-befe-bdc985ffa479
 prior_predictive = predict(model_predict, prior)
@@ -87,12 +87,15 @@ begin
 									"subj" => [i for i in 1:data.n_subjects],
 									"session" => [i for i in 1:data.n_sessions],
 									"trial" => [i for i in 1:30]),
-						dims = Dict("μ_β_v" => ["interv"], 
-									"σ_β_v" => ["interv"],
+						dims = Dict("μ_ε_v" => ["interv"], 
+									"σ_ε_v" => ["interv"],
 									"μ_η_v" => ["interv"], 
 									"σ_η_v" => ["interv"],
-									"β_norm_m" => ["interv", "subj"],
+									"μ_s_v" => ["interv"], 
+									"σ_s_v" => ["interv"],
+									"ε_norm_m" => ["interv", "subj"],
 									"η_norm_m" => ["interv", "subj"],
+									"s_norm_m" => ["interv", "subj"],
 									"subj_action_v" => ["subj"]),
 						library="Turing")
 	
@@ -101,7 +104,7 @@ end
 
 # ╔═╡ 0c7096c8-9cb8-42a1-9a41-e0eff5884305
 begin
-	plot_trace(idt; var_names = ["μ_β_v", "μ_η_v"])
+	plot_trace(idt; var_names = ["μ_ε_v", "μ_η_v", "μ_s_v"])
 	gcf()
 end
 
@@ -113,14 +116,14 @@ end
 
 # ╔═╡ ac16ab02-e131-4ac6-8699-4b6d7f8e69dd
 begin
-	plot_posterior(idt; var_names = ["μ_β_v", "μ_η_v"])
+	plot_posterior(idt; var_names = ["μ_ε_v", "μ_η_v", "μ_s_v"])
 	gcf()
 end
 
 # ╔═╡ 4d971b8a-3171-425e-869d-d85d67bd7d26
 loo(idt; var_name = "subj_action_v")
 
-# ╔═╡ 33895959-ae6b-4ef0-a89e-6c218b3ba7dc
+# ╔═╡ 98cd7bcc-9564-4e8a-85df-619e1726a238
 waic(idt; var_name = "subj_action_v")
 
 # ╔═╡ Cell order:
@@ -140,4 +143,4 @@ waic(idt; var_name = "subj_action_v")
 # ╠═b97d7720-86dc-4b7d-9fb8-d72f616a6164
 # ╠═ac16ab02-e131-4ac6-8699-4b6d7f8e69dd
 # ╠═4d971b8a-3171-425e-869d-d85d67bd7d26
-# ╠═33895959-ae6b-4ef0-a89e-6c218b3ba7dc
+# ╠═98cd7bcc-9564-4e8a-85df-619e1726a238

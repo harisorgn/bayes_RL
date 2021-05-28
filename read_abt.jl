@@ -12,34 +12,33 @@ function map_session(day, week)
 	end
 end
 
-function cb_map_functions(cb_file)
+function cb_map_functions(cb_file, group_d)
 
-	interv_d = Dict("2vs1" => Dict("V" => 1, "1" => 1, "2" => 1),
-					"FG7142" => Dict("V" => 1, "A" => 2, "B" => 3, "C" => 1),
-					"cort" => Dict("V" => 1, "A" => 2, "B" => 3, "C" => 4, "D" => 1))
+	#interv_d = Dict("2vs1" => Dict("V" => 1, "1" => 1, "2" => 1),
+	#				"FG7142" => Dict("V" => 1, "A" => 2, "B" => 3, "C" => 1),
+	#				"cort" => Dict("V" => 1, "A" => 2, "B" => 3, "C" => 4, "D" => 1))
 
 	df = CSV.File(cb_file) |> DataFrame
 
-	action_d = Dict("A" => 1, "B" => 2, "blank" => 3)
+	choice_d = Dict("A" => 1, "B" => 2, "blank" => 3)
 
 	interv_name = split(cb_file, '_')[2]
-	group_d = interv_d[interv_name]
+	#group_d = interv_d[interv_name]
 
 	reward_d = Dict{String, Dict{String, Float64}}()
 
 	for ID in df.ID
 		if interv_name == "2vs1"
 
-			(action_1, reward_magnitude_1) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== 1), :PD1][1])
-			(action_2, reward_magnitude_2) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== 1), :PD2][1])
+			(choice_1, reward_magnitude_1) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== 1), :PD1][1])
+			(choice_2, reward_magnitude_2) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== 1), :PD2][1])
 
-			reward_d[ID] = Dict(action_1 => parse(Float64, reward_magnitude_1),
-								action_2 => parse(Float64, reward_magnitude_2),
+			reward_d[ID] = Dict(choice_1 => parse(Float64, reward_magnitude_1),
+								choice_2 => parse(Float64, reward_magnitude_2),
 								"" => 0.0)
 		else
 			reward_d[ID] = Dict("A" => 1.0, "B" => 1.0, "" => 0.0)
 		end
-
 	end
 
 	function group(ID, day, week)
@@ -52,38 +51,42 @@ function cb_map_functions(cb_file)
 
 			(~, interv) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== week), Symbol(day)][1])
 
-			return group_d[interv]
+			try group_d[interv]
+				return group_d[interv]
+			catch e
+				return -1
+			end
 		end
 	end
 
-	function avail_actions(ID, day, week)
+	function avail_actions(ID, day, week, week_idx)
 
 		if day == "test"
 
-			return [action_d["A"] + (week - 1)*3, action_d["B"] + (week - 1)*3]
+			return [choice_d["A"] + (week_idx - 1)*3, choice_d["B"] + (week_idx - 1)*3]
 
 		else
 
 			(avail_action,) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== week), Symbol(day)][1])
 
-			return [action_d["blank"] + (week - 1)*3, action_d[avail_action] + (week - 1)*3]
+			return [choice_d["blank"] + (week_idx - 1)*3, choice_d[avail_action] + (week_idx - 1)*3]
 		end
 	end
 
-	function actions(day, action_v)
+	function choices(day, choice_v)
 		
 		if day == "test" 
-			# actions need to be {0,1} to agree with Binomial samples
+			# choices need to be {0,1} to agree with Binomial samples
 			# that is why -1 is added
-			return map(action -> action_d[action] - 1, action_v)
+			return map(choice -> choice_d[choice] - 1, choice_v)
 		else 
-			return parse.(Int, action_v)
+			return parse.(Int, choice_v)
 		end
 	end
 
-	function rewards(ID, day, week, action_v)
+	function rewards(ID, day, week, choice_v)
 
-		test_rewarded_actions_v = ["A", "B", "", "B", "", "A", "", 
+		test_rewarded_choices_v = ["A", "B", "", "B", "", "A", "", 
 									"A", "B", "A", "B", "", "B", "", 
 									"A", "", "A", "B", "A", "B", "", 
 									"B", "", "A", "", "A", "B", "A", 
@@ -91,16 +94,16 @@ function cb_map_functions(cb_file)
 
 		if day == "test"
 
-			return map((action, rewarded_action) -> action == rewarded_action ? reward_d[ID][action] : 0.0, action_v, test_rewarded_actions_v)
+			return map((choice, rewarded_choice) -> choice == rewarded_choice ? reward_d[ID][choice] : 0.0, choice_v, test_rewarded_choicess_v)
 		else
 
 			(avail_action, ~) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== week), Symbol(day)][1])
 
-			return parse.(Float64, action_v) * reward_d[ID][avail_action]
+			return parse.(Float64, choice_v) * reward_d[ID][avail_action]
 		end
 	end
 
-	return (group, avail_actions, actions, rewards)
+	return (group, avail_actions, choices, rewards)
 end
 
 function count_subjects_sessions(file_v)
@@ -126,7 +129,7 @@ function count_subjects_sessions(file_v)
 end
 
 
-function read_data(file_v, cb_file_v)
+function read_data(file_v, cb_file_v, group_d)
 
 	#=
 	batch_ID_v = String[]
@@ -146,7 +149,7 @@ function read_data(file_v, cb_file_v)
 
 	(n_subjects, n_sessions) = count_subjects_sessions(file_v)
 
-	action_m = Matrix{Array{Int64,1}}(undef, n_subjects, n_sessions)
+	choice_m = Matrix{Array{Int64,1}}(undef, n_subjects, n_sessions)
 	avail_actions_m = Matrix{Array{Int64,1}}(undef, n_subjects, n_sessions)
 	group_m = Matrix{Int64}(undef, n_subjects, n_sessions)
 	R_m = Matrix{Array{Float64,1}}(undef, n_subjects, n_sessions)
@@ -165,25 +168,39 @@ function read_data(file_v, cb_file_v)
 		day_v = unique(df.Day)
 		week_v = unique(df.Week)
 
-		(group_f, avail_actions_f, actions_f, rewards_f) = cb_map_functions(cb_file)
+		(group_f, avail_actions_f, choices_f, rewards_f) = cb_map_functions(cb_file, group_d)
 
 		for ID in ID_v
-			for day in day_v
-				for week in week_v
 
-					ID_number = parse(Int64, ID[findlast('_', ID)+1 : end]) + offset_ID
-					session = map_session(day, week) + offset_sessions
+			ID_number = parse(Int64, ID[findlast('_', ID)+1 : end]) + offset_ID
 
-					action_m[ID_number, session] = actions_f(day, df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+			week_idx = 0
 
-					avail_actions_m[ID_number, session] = avail_actions_f(ID, day, week) .+ offset_actions
+			for week in week_v
 
-					group_m[ID_number, session] = group_f(ID, day, week)
+				if group_f(ID, "PD1", week) != -1 && 
+					group_f(ID, "PD2", week) != -1 &&
+					group_f(ID, "PD3", week) != -1 &&
+					group_f(ID, "PD4", week) != -1 
 
-					R_m[ID_number, session] = rewards_f(ID, day, week, 
-														df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+					week_idx += 1
 
-					trial_m[ID_number, session] = length(df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+					for day in day_v
+
+						group = group_f(ID, day, week)
+
+						session = map_session(day, week_idx) + offset_sessions
+
+						choice_m[ID_number, session] = choices_f(day, 
+																df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+
+						avail_actions_m[ID_number, session] = avail_actions_f(ID, day, week, week_idx) .+ offset_actions
+
+						R_m[ID_number, session] = rewards_f(ID, day, week, 
+															df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+
+						trial_m[ID_number, session] = length(df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+					end
 				end
 			end
 		end
@@ -192,7 +209,7 @@ function read_data(file_v, cb_file_v)
 		offset_sessions += length(unique(map((x,y) -> (x,y), df.Day, df.Week)))
 	end
 
-	return (action_m, ABT_t(n_sessions, n_subjects, length(unique(group_m)), avail_actions_m, group_m, R_m, trial_m))
+	return (choice_m, ABT_t(n_sessions, n_subjects, length(unique(group_m)), avail_actions_m, group_m, R_m, trial_m))
 end
 
 
