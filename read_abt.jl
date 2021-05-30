@@ -14,18 +14,13 @@ end
 
 function cb_map_functions(cb_file, group_d)
 
-	#interv_d = Dict("2vs1" => Dict("V" => 1, "1" => 1, "2" => 1),
-	#				"FG7142" => Dict("V" => 1, "A" => 2, "B" => 3, "C" => 1),
-	#				"cort" => Dict("V" => 1, "A" => 2, "B" => 3, "C" => 4, "D" => 1))
-
 	df = CSV.File(cb_file) |> DataFrame
 
 	choice_d = Dict("A" => 1, "B" => 2, "blank" => 3)
 
 	interv_name = split(cb_file, '_')[2]
-	#group_d = interv_d[interv_name]
 
-	reward_d = Dict{String, Dict{String, Float64}}()
+	test_reward_d = Dict{String, Dict{String, Float64}}()
 
 	for ID in df.ID
 		if interv_name == "2vs1"
@@ -33,11 +28,11 @@ function cb_map_functions(cb_file, group_d)
 			(choice_1, reward_magnitude_1) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== 1), :PD1][1])
 			(choice_2, reward_magnitude_2) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== 1), :PD2][1])
 
-			reward_d[ID] = Dict(choice_1 => parse(Float64, reward_magnitude_1),
+			test_reward_d[ID] = Dict(choice_1 => parse(Float64, reward_magnitude_1),
 								choice_2 => parse(Float64, reward_magnitude_2),
 								"" => 0.0)
 		else
-			reward_d[ID] = Dict("A" => 1.0, "B" => 1.0, "" => 0.0)
+			test_reward_d[ID] = Dict("A" => 1.0, "B" => 1.0, "" => 0.0)
 		end
 	end
 
@@ -94,75 +89,70 @@ function cb_map_functions(cb_file, group_d)
 
 		if day == "test"
 
-			return map((choice, rewarded_choice) -> choice == rewarded_choice ? reward_d[ID][choice] : 0.0, choice_v, test_rewarded_choicess_v)
+			return map((choice, rewarded_choice) -> choice == rewarded_choice ? test_reward_d[ID][choice] : 0.0, choice_v, test_rewarded_choices_v)
 		else
 
 			(avail_action, ~) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== week), Symbol(day)][1])
 
-			return parse.(Float64, choice_v) * reward_d[ID][avail_action]
+			return parse.(Float64, choice_v) * test_reward_d[ID][avail_action]
 		end
 	end
 
 	return (group, avail_actions, choices, rewards)
 end
 
-function count_subjects_sessions(file_v)
+function count_sessions(cb_file, group_v)
 
-	filename = file_v[1]
+	df = CSV.File(cb_file) |> DataFrame
 
-	df = CSV.File(filename) |> DataFrame
-
-	n_sessions = length(unique(map((x,y) -> (x,y), df.Day, df.Week)))
-
-	for filename in file_v[2:end]
-
-		df_new = CSV.File(filename) |> DataFrame
-
-		df = vcat(df, df_new)
-
-		n_sessions += length(unique(map((x,y) -> (x,y), df_new.Day, df_new.Week)))
-	end
+	interv_v = vcat(getindex.(parse_tuple.(df.PD1),2), getindex.(parse_tuple.(df.PD2),2))
 
 	n_subjects = length(unique(df.ID))
 
-	return (n_subjects, n_sessions)
-end
+	n_weeks = Int(count(x -> x in group_v, interv_v) / n_subjects)
 
+	return n_weeks * 5
+end
 
 function read_data(file_v, cb_file_v, group_d)
 
-	#=
 	batch_ID_v = String[]
-	batch_ID = split(ID_v[1], "_")[1]
-
-	if any(x -> occursin(batch_ID, x), batch_ID_v)
-		offset_ID = 0
-	else
-		offset_ID = n_subjects
-		n_subjects += length(ID_v)
-		push!(batch_ID_v, batch_ID)
-	end
-	=#
 	offset_ID = 0
 
-	@assert length(file_v) == length(cb_file_v)
+	CHOICE_V = Matrix[]
+	AVAIL_ACTIONS_V = Matrix[]
+	GROUP_V = Matrix[]
+	R_V = Matrix[]
+	TRIAL_V = Matrix[]
 
-	(n_subjects, n_sessions) = count_subjects_sessions(file_v)
+	n_subjects = 0
+	n_sessions = 0
 
-	choice_m = Matrix{Array{Int64,1}}(undef, n_subjects, n_sessions)
-	avail_actions_m = Matrix{Array{Int64,1}}(undef, n_subjects, n_sessions)
-	group_m = Matrix{Int64}(undef, n_subjects, n_sessions)
-	R_m = Matrix{Array{Float64,1}}(undef, n_subjects, n_sessions)
-	trial_m = Matrix{Int64}(undef, n_subjects, n_sessions)
+	for (batch_file_v, batch_cb_file_v) in zip(file_v, cb_file_v)
+
+	@assert length(batch_file_v) == length(batch_cb_file_v)
+
+	interv_v = filter(x -> x != "V" && x != "1", keys(group_d))
+	
+	df = CSV.File(batch_file_v[1]) |> DataFrame
+	n_subjects_batch = length(unique(df.ID))
+	n_sessions_batch = length(interv_v) * 5
+	batch_ID = split(df.ID[1], "_")[1]
+
+	choice_m = Matrix{Array{Int64,1}}(undef, n_subjects_batch, n_sessions_batch)
+	avail_actions_m = Matrix{Array{Int64,1}}(undef, n_subjects_batch, n_sessions_batch)
+	group_m = Matrix{Int64}(undef, n_subjects_batch, n_sessions_batch)
+	R_m = Matrix{Array{Float64,1}}(undef, n_subjects_batch, n_sessions_batch)
+	trial_m = Matrix{Int64}(undef, n_subjects_batch, n_sessions_batch)
 
 	offset_sessions = 0
 	offset_actions = 0
 
-	for (file, cb_file) in zip(file_v, cb_file_v)
+	for (file, cb_file) in zip(batch_file_v, batch_cb_file_v)
 
 		df = CSV.File(file) |> DataFrame
 
-		df = df[df.Choice .!= "O", :]
+		df = filter(x -> !ismissing(x.Choice) && x.Choice != "O", df)
 
 		ID_v = unique(df.ID)
 		day_v = unique(df.Day)
@@ -187,27 +177,52 @@ function read_data(file_v, cb_file_v, group_d)
 
 					for day in day_v
 
-						group = group_f(ID, day, week)
-
 						session = map_session(day, week_idx) + offset_sessions
 
-						choice_m[ID_number, session] = choices_f(day, 
-																df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+						group_m[ID_number, session] = group_f(ID, day, week)
 
-						avail_actions_m[ID_number, session] = avail_actions_f(ID, day, week, week_idx) .+ offset_actions
+						choice_m[ID_number, session] = choices_f(day, 
+																df[(df.ID .== ID) .& 
+																	(df.Day .== day) .& 
+																	(df.Week .== week), 
+																	:Choice])
+
+						avail_actions_m[ID_number, session] = avail_actions_f(ID, day, week, week_idx) .+ 
+															offset_actions
 
 						R_m[ID_number, session] = rewards_f(ID, day, week, 
-															df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+															df[(df.ID .== ID) .& 
+																(df.Day .== day) .& 
+																(df.Week .== week), 
+																:Choice])
 
-						trial_m[ID_number, session] = length(df[(df.ID .== ID) .& (df.Day .== day) .& (df.Week .== week), :Choice])
+						trial_m[ID_number, session] = length(df[(df.ID .== ID) .& 
+																(df.Day .== day) .& 
+																(df.Week .== week), 
+																:Choice])
 					end
 				end
 			end
 		end
 
 		offset_actions += length(unique(df.Week)) * 3
-		offset_sessions += length(unique(map((x,y) -> (x,y), df.Day, df.Week)))
+		offset_sessions += count_sessions(cb_file, interv_v)
 	end
+	push!(CHOICE_V, choice_m)
+	push!(AVAIL_ACTIONS_V, avail_actions_m)
+	push!(GROUP_V, group_m)
+	push!(R_V, R_m)
+	push!(TRIAL_V, trial_m)
+
+	n_subjects += n_subjects_batch
+	n_sessions = n_sessions_batch
+	end
+
+	choice_m = reduce(vcat, CHOICE_V)
+	avail_actions_m = reduce(vcat, AVAIL_ACTIONS_V)
+	group_m = reduce(vcat, GROUP_V)
+	R_m = reduce(vcat, R_V)
+	trial_m = reduce(vcat, TRIAL_V)
 
 	return (choice_m, ABT_t(n_sessions, n_subjects, length(unique(group_m)), avail_actions_m, group_m, R_m, trial_m))
 end
