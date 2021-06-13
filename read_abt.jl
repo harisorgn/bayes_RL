@@ -29,8 +29,8 @@ function cb_map_functions(cb_file, group_d)
 			(choice_2, reward_magnitude_2) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== 1), :PD2][1])
 
 			test_reward_d[ID] = Dict(choice_1 => parse(Float64, reward_magnitude_1),
-								choice_2 => parse(Float64, reward_magnitude_2),
-								"" => 0.0)
+									choice_2 => parse(Float64, reward_magnitude_2),
+									"" => 0.0)
 		else
 			test_reward_d[ID] = Dict("A" => 1.0, "B" => 1.0, "" => 0.0)
 		end
@@ -46,9 +46,9 @@ function cb_map_functions(cb_file, group_d)
 
 			(~, interv) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== week), Symbol(day)][1])
 
-			try group_d[interv]
+			if interv in keys(group_d)
 				return group_d[interv]
-			catch e
+			else
 				return -1
 			end
 		end
@@ -64,7 +64,8 @@ function cb_map_functions(cb_file, group_d)
 
 			(avail_action,) = parse_tuple(df[(df.ID .== ID) .& (df.Week .== week), Symbol(day)][1])
 
-			return [choice_d["blank"] + (week_idx - 1)*3, choice_d[avail_action] + (week_idx - 1)*3]
+			return [choice_d["blank"] + (week_idx - 1)*3, 
+					choice_d[avail_action] + (week_idx - 1)*3]
 		end
 	end
 
@@ -145,6 +146,7 @@ function read_data(file_v, cb_file_v, group_d)
 	R_m = Matrix{Array{Float64,1}}(undef, n_subjects_batch, n_sessions_batch)
 	trial_m = Matrix{Int64}(undef, n_subjects_batch, n_sessions_batch)
 
+	offset_weeks = 0
 	offset_sessions = 0
 	offset_actions = 0
 
@@ -203,9 +205,11 @@ function read_data(file_v, cb_file_v, group_d)
 					end
 				end
 			end
+
+			offset_weeks = week_idx
 		end
 
-		offset_actions += length(unique(df.Week)) * 3
+		offset_actions += offset_weeks * 3
 		offset_sessions += count_sessions(cb_file, interv_v)
 	end
 	push!(CHOICE_V, choice_m)
@@ -217,7 +221,7 @@ function read_data(file_v, cb_file_v, group_d)
 	n_subjects += n_subjects_batch
 	n_sessions = n_sessions_batch
 	end
-
+	
 	choice_m = reduce(vcat, CHOICE_V)
 	avail_actions_m = reduce(vcat, AVAIL_ACTIONS_V)
 	group_m = reduce(vcat, GROUP_V)

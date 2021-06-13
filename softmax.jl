@@ -33,13 +33,13 @@
 
 			avail_actions_v = data.avail_actions_m[subject, session]
 
-			group = data.group_m[subject, session]
+			g = data.group_m[subject, session]
 
-			β = β_m[group, subject]
-			η = η_m[group, subject]
+			β = β_m[g, subject]
+			η = η_m[g, subject]
 
 			for trial = 1 : data.trial_m[subject, session]
-
+			
 				choice_m[subject, session][trial] ~ BinomialLogit(1, β * (r_v[avail_actions_v[2]] - r_v[avail_actions_v[1]]))
 
 				action = avail_actions_v[choice_m[subject, session][trial] + 1]
@@ -49,8 +49,65 @@
 		end
 	end
 
-	return choice_m
+	return (cdf.(Normal(0,1), μ_β_v) * β_upper, cdf.(Normal(0,1), μ_η_v))
+end
+
+function predict_softmax(choice_m, data, chn)
+
+	rng = MersenneTwister()
+
+	(n_samples, n_groups, n_chains) = size(group(chn, :μ_β_v).value)
+
+	β_upper = 10.0 
+	n_MC = 100
+	l = 0.0
+
+	for c = 1 : n_chains
+		for s = 1 : n_samples 
+
+			μ_β_v = group(chn, :μ_β_v).value[s, :, c]
+			σ_β_v = group(chn, :σ_β_v).value[s, :, c]
+			μ_η_v = group(chn, :μ_η_v).value[s, :, c]
+			σ_η_v = group(chn, :σ_η_v).value[s, :, c]
+
+			l_s = 0.0
+
+			for k = 1 : n_MC
+				ll_MC = 0.0
+				for subject = 1 : data.n_subjects
+
+					r_v = zeros(Int(3*data.n_sessions / 5))
+
+					for session = 1 : data.n_sessions
+
+						avail_actions_v = data.avail_actions_m[subject, session]
+
+						g = data.group_m[subject, session]
+
+						β_norm = rand(rng, Normal(0,1))
+						η_norm = rand(rng, Normal(0,1))
+
+						β = cdf(Normal(0,1), μ_β_v[g] + β_norm * σ_β_v[g]) * β_upper
+						η = cdf(Normal(0,1), μ_η_v[g] + η_norm * σ_η_v[g])
+
+						for trial = 1 : data.trial_m[subject, session]
+						
+							ll_MC += logpdf(BinomialLogit(1, β * (r_v[avail_actions_v[2]] - r_v[avail_actions_v[1]])), 
+											choice_m[subject, session][trial])
+
+							action = avail_actions_v[choice_m[subject, session][trial] + 1]
+							
+							r_v[action] += η * (data.R_m[subject, session][trial] - r_v[action])
+						end
+					end
+				end
+				l_s += exp(ll_MC)
+			end
+
+			l += l_s / n_MC
+		end
+	end
+	return log(l / (n_samples * n_chains))
 end
 
 run_softmax(choice_m, data::ABT_t) = sample(softmax_model(choice_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
-

@@ -52,11 +52,11 @@ end
 
 			avail_actions_v = data.avail_actions_m[subject, session]
 
-			group = data.group_m[subject, session]
+			g = data.group_m[subject, session]
 
-			ε = ε_m[group, subject]
-			η = η_m[group, subject]
-			s = s_m[group, subject]
+			ε = ε_m[g, subject]
+			η = η_m[g, subject]
+			s = s_m[g, subject]
 
 			for trial = 1 : data.trial_m[subject, session]
 
@@ -71,8 +71,70 @@ end
 		end
 	end
 
-	return choice_m
+	return (cdf.(Normal(0,1), μ_ε_v), cdf.(Normal(0,1), μ_η_v), cdf.(Normal(0,1), μ_s_v) * s_upper)
+end
+
+function predict_lapse(choice_m, data, chn)
+
+	rng = MersenneTwister()
+
+	(n_samples, n_groups, n_chains) = size(group(chn, :μ_ε_v).value)
+
+	s_upper = 30.0 
+	n_MC = 100
+	l = 0.0
+
+	for c = 1 : n_chains
+		for s = 1 : n_samples 
+
+			μ_ε_v = group(chn, :μ_ε_v).value[s, :, c]
+			σ_ε_v = group(chn, :σ_ε_v).value[s, :, c]
+			μ_η_v = group(chn, :μ_η_v).value[s, :, c]
+			σ_η_v = group(chn, :σ_η_v).value[s, :, c]
+			μ_s_v = group(chn, :μ_s_v).value[s, :, c]
+			σ_s_v = group(chn, :σ_s_v).value[s, :, c]
+
+			l_s = 0.0
+
+			for k = 1 : n_MC
+				ll_MC = 0.0
+				for subject = 1 : data.n_subjects
+
+					r_v = zeros(Int(3*data.n_sessions / 5))
+
+					for session = 1 : data.n_sessions
+
+						avail_actions_v = data.avail_actions_m[subject, session]
+
+						g = data.group_m[subject, session]
+
+						ε_norm = rand(rng, Normal(0,1))
+						η_norm = rand(rng, Normal(0,1))
+						s_norm = rand(rng, Normal(0,1))
+
+						ε = cdf(Normal(0,1), μ_ε_v[g] + ε_norm * σ_ε_v[g])
+						η = cdf(Normal(0,1), μ_η_v[g] + η_norm * σ_η_v[g])
+						s = cdf(Normal(0,1), μ_s_v[g] + η_norm * σ_η_v[g]) * s_upper
+
+						for trial = 1 : data.trial_m[subject, session]
+							
+							P_v = P_lapse(ε, r_v[avail_actions_v])
+
+							ll_MC += logpdf(Binomial(1, P_v[2]), choice_m[subject, session][trial])
+
+							action = avail_actions_v[choice_m[subject, session][trial] + 1]
+							
+							r_v[action] += η * (s * data.R_m[subject, session][trial] - r_v[action])
+						end
+					end
+				end
+				l_s += exp(ll_MC)
+			end
+
+			l += l_s / n_MC
+		end
+	end
+	return log(l / (n_samples * n_chains))
 end
 
 run_lapse(choice_m, data::ABT_t) = sample(lapse_model(choice_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
-
