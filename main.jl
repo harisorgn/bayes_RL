@@ -8,8 +8,9 @@ using Distributed
 
 include("read_abt.jl")
 include("task_types.jl")
-include("lapse.jl")
 include("softmax.jl")
+include("ε_greedy.jl")
+include("ε_soft.jl")
 
 Turing.setadbackend(:reversediff)
 
@@ -23,10 +24,7 @@ group_d = Dict("V" => 1, "FG_0" => 1, "FG_3" => 2, "1" => 1, "2" => 1)
 
 (choice_m, data) = read_data(file_v, cb_file_v, group_d)
 
-chn = run_softmax(choice_m, data)
+chn = run_ε_soft(choice_m, data)
 
-serialize("chn_softmax_FG.jls", chn)
+serialize("chn_lapse_FG_rec.jls", chn)
 
-chn = run_lapse(choice_m, data)
-
-serialize("chn_lapse_FG.jls", chn)

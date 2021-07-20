@@ -1,5 +1,4 @@
 using CSV
-using DataFrames
 
 parse_tuple(str) = Tuple(split(str[2 : end - 1], ','))
 
@@ -126,25 +125,24 @@ function read_data(file_v, cb_file_v, group_d)
 	R_V = Matrix[]
 	TRIAL_V = Matrix[]
 
+	interv_v = filter(x -> x != "V" && x != "1", keys(group_d))
+
 	n_subjects = 0
-	n_sessions = 0
+	n_sessions = length(interv_v) * 5
 
 	for (batch_file_v, batch_cb_file_v) in zip(file_v, cb_file_v)
 
 	@assert length(batch_file_v) == length(batch_cb_file_v)
-
-	interv_v = filter(x -> x != "V" && x != "1", keys(group_d))
 	
 	df = CSV.File(batch_file_v[1]) |> DataFrame
 	n_subjects_batch = length(unique(df.ID))
-	n_sessions_batch = length(interv_v) * 5
 	batch_ID = split(df.ID[1], "_")[1]
 
-	choice_m = Matrix{Array{Int64,1}}(undef, n_subjects_batch, n_sessions_batch)
-	avail_actions_m = Matrix{Array{Int64,1}}(undef, n_subjects_batch, n_sessions_batch)
-	group_m = Matrix{Int64}(undef, n_subjects_batch, n_sessions_batch)
-	R_m = Matrix{Array{Float64,1}}(undef, n_subjects_batch, n_sessions_batch)
-	trial_m = Matrix{Int64}(undef, n_subjects_batch, n_sessions_batch)
+	choice_m = Matrix{Array{Int64,1}}(undef, n_subjects_batch, n_sessions)
+	avail_actions_m = Matrix{Array{Int64,1}}(undef, n_subjects_batch, n_sessions)
+	group_m = Matrix{Int64}(undef, n_subjects_batch, n_sessions)
+	R_m = Matrix{Array{Float64,1}}(undef, n_subjects_batch, n_sessions)
+	trial_m = Matrix{Int64}(undef, n_subjects_batch, n_sessions)
 
 	offset_weeks = 0
 	offset_sessions = 0
@@ -219,7 +217,6 @@ function read_data(file_v, cb_file_v, group_d)
 	push!(TRIAL_V, trial_m)
 
 	n_subjects += n_subjects_batch
-	n_sessions = n_sessions_batch
 	end
 	
 	choice_m = reduce(vcat, CHOICE_V)

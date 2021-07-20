@@ -2,11 +2,14 @@ using Turing
 using Serialization
 using MLDataUtils
 using Random
+using Distributed
+
+addprocs(14)
 
 include("task_types.jl")
-include("read_abt.jl")
-include("softmax.jl")
-include("lapse.jl")
+@everywhere include("read_abt.jl")
+@everywhere include("softmax.jl")
+@everywhere include("lapse.jl")
 
 function K_fold_CV(choice_m, data, folds, chains, predict_f)
 
@@ -35,10 +38,10 @@ function K_fold_CV(choice_m, data, folds, chains, predict_f)
 						collect.(folds.val_indices))
 
 	
-	elpd_v = map((val_choice_m, val_data, chain) -> predict_f(val_choice_m, val_data, chain), 
+	elpd_v = pmap((val_choice_m, val_data, chain) -> predict_f(val_choice_m, val_data, chain), 
 				val_choice_v, val_data_v, chains)
 
-	return (sum(elpd_v), elpd_v)
+	return elpd_v
 end
 
 chains = deserialize("chn_lapse_FG_CV.jls")

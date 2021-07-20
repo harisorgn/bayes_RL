@@ -11,7 +11,7 @@ include("lapse.jl")
 
 function plot_trans_violin_softmax(choice_m, data, group_name_v, study_name)
 	
-	chn = deserialize(string("chn_softmax_", study_name, ".jls"));
+	chn = deserialize(string("./chains/chn_softmax_", study_name, ".jls"));
 
 	m = softmax_model(choice_m, data)
 
@@ -37,7 +37,8 @@ function plot_trans_violin_softmax(choice_m, data, group_name_v, study_name)
 	savefig(string("./figures/", "μ_β_soft_", study_name, ".eps"))
 
 
-	ax = plot_violin(idt ; var_names = ["μ_η"], textsize = 12, rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0), quartiles = false)
+	ax = plot_violin(idt ; var_names = ["μ_η"], textsize = 12, quartiles = false,
+						rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0))
 
 	ax[1].set_ylabel(L"\mu_\eta"; fontsize = 16)
 	for i = 1 : length(group_name_v)
@@ -59,14 +60,14 @@ function plot_trans_violin_softmax(choice_m, data, group_name_v, study_name)
 					textsize = 12, quartiles = false, rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0), ax = ax[2])
 
 		ax[2].set_title(L"\Delta \mu_{\eta}"; fontsize = 16)
-		savefig(string("./figures/", "Δ_soft_", interv_group, ".png"))
+		savefig(string("./figures/", "Δ_soft_", interv_group, ".eps"))
 	end
 	show()
 end
 
 function plot_trans_violin_lapse(choice_m, data, group_name_v, study_name)
 	
-	chn = deserialize(string("chn_lapse_", study_name, ".jls"));
+	chn = deserialize(string("./chains/chn_lapse_", study_name, ".jls"));
 
 	m = lapse_model(choice_m, data)
 
@@ -86,7 +87,9 @@ function plot_trans_violin_lapse(choice_m, data, group_name_v, study_name)
 
 	ax = plot_violin(idt; var_names = ["μ_ε"], textsize = 12, quartiles = false,
 							rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0))
-	ax[1].set_ylabel(L"\mu_\epsilon"; fontsize = 16)
+
+	ax[1].set_ylabel("mean lapse rate [group level]"; fontsize = 16)
+
 	for i = 1 : length(group_name_v)
 		ax[i].set_title(group_name_v[i]; fontsize = 16)
 	end
@@ -96,7 +99,9 @@ function plot_trans_violin_lapse(choice_m, data, group_name_v, study_name)
 
 	ax = plot_violin(idt; var_names = ["μ_η"], textsize = 12, quartiles = false,
 							rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0))
-	ax[1].set_ylabel(L"\mu_\eta"; fontsize = 16)
+
+	ax[1].set_ylabel("mean learning rate [group level])"; fontsize = 16)
+
 	for i = 1 : length(group_name_v)
 		ax[i].set_title(group_name_v[i]; fontsize = 16)
 	end
@@ -106,7 +111,9 @@ function plot_trans_violin_lapse(choice_m, data, group_name_v, study_name)
 
 	ax = plot_violin(idt; var_names = ["μ_s"], textsize = 12, quartiles = false,
 							rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0))
-	ax[1].set_ylabel(L"\mu_s"; fontsize = 16)
+
+	ax[1].set_ylabel("mean sensitivity [group level]"; fontsize = 16)
+
 	for i = 1 : length(group_name_v)
 		ax[i].set_title(group_name_v[i]; fontsize = 16)
 	end
@@ -119,15 +126,15 @@ function plot_trans_violin_lapse(choice_m, data, group_name_v, study_name)
 		_, ax = plt.subplots(1, 3)
 		plot_violin(idt.sel(interv = interv_group).posterior["μ_ε"] - idt.sel(interv = group_name_v[1]).posterior["μ_ε"];
 					textsize = 12, quartiles = false, rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0), ax = ax[1])
-		ax[1].set_title(L"\Delta \mu_\epsilon"; fontsize = 16)
+		ax[1].set_title("Difference in mean lapse rate"; fontsize = 16)
 
 		plot_violin(idt.sel(interv = interv_group).posterior["μ_η"] - idt.sel(interv = group_name_v[1]).posterior["μ_η"];
 					textsize = 12, quartiles = false, rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0), ax = ax[2])
-		ax[2].set_title(L"\Delta \mu_\eta"; fontsize = 16)
+		ax[2].set_title("Difference mean learning rate"; fontsize = 16)
 
 		plot_violin(idt.sel(interv = interv_group).posterior["μ_s"] - idt.sel(interv = group_name_v[1]).posterior["μ_s"];
 					textsize = 12, quartiles = false, rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0), ax = ax[3])
-		ax[3].set_title(L"\Delta \mu_s"; fontsize = 16)
+		ax[3].set_title("Difference in mean sensitivity"; fontsize = 16)
 
 		savefig(string("./figures/", "Δ_lapse_", interv_group, ".eps"))
 	end
@@ -136,12 +143,15 @@ end
 
 ArviZ.use_style("arviz-whitegrid")
 
-file_v = [["./abt/SS2_ketamine_trials.csv", "./abt/SS2_2vs1_trials.csv"]]
+file_v = [["./abt/ER17_FG7142_trials.csv", "./abt/ER17_2vs1_trials.csv"],
+			["./abt/SS2_FG7142_trials.csv", "./abt/SS2_2vs1_trials.csv"]]
 
-cb_file_v = [["./abt/SS2_ketamine_counterbalance.csv", "./abt/SS2_2vs1_counterbalance.csv"]]
+cb_file_v = [["./abt/ER17_FG7142_counterbalance.csv", "./abt/ER17_2vs1_counterbalance.csv"],
+			["./abt/SS2_FG7142_counterbalance.csv", "./abt/SS2_2vs1_counterbalance.csv"]]
 
-group_d = Dict("V" => 1, "KET_0" => 1, "KET_1" => 2, "KET_3" => 3, "1" => 1, "2" => 1)
+group_d = Dict("V" => 1, "FG_0" => 1, "FG_3" => 2, "1" => 1, "2" => 1)
 
 (choice_m, data) = read_data(file_v, cb_file_v, group_d)
 
-plot_trans_violin_softmax(choice_m, data, ["Control", "Ketamine"], "ket")
+plot_trans_violin_softmax(choice_m, data, ["Vehicle", "FG_7142"], "FG")
+plot_trans_violin_lapse(choice_m, data, ["Vehicle", "FG_7142"], "FG")
