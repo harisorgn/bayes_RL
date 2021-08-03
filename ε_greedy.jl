@@ -40,7 +40,7 @@ end
 
 	for subject = 1 : data.n_subjects
 
-		r_v = zeros(T, Int(3*data.n_sessions / 5))
+		r_v = zeros(T, Int(data.n_avail_actions_per_week * data.n_sessions / data.n_sessions_per_week))
 
 		for session = 1 : data.n_sessions
 
@@ -101,7 +101,7 @@ end
 
 	for subject = 1 : data.n_subjects
 
-		r_v = zeros(T, Int(3*data.n_sessions / 5))
+		r_v = zeros(T, Int(data.n_avail_actions_per_week * data.n_sessions / data.n_sessions_per_week))
 
 		for session = 1 : data.n_sessions
 
@@ -156,7 +156,7 @@ function predict_ε_greedy_3(choice_m, data, chn)
 				ll_MC = 0.0
 				for subject = 1 : data.n_subjects
 
-					r_v = zeros(Int(3*data.n_sessions / 5))
+					r_v = zeros(Int(data.n_avail_actions_per_week * data.n_sessions / data.n_sessions_per_week))
 
 					for session = 1 : data.n_sessions
 
@@ -193,4 +193,4 @@ function predict_ε_greedy_3(choice_m, data, chn)
 	return log(l / (n_samples * n_chains))
 end
 
-run_ε_greedy(choice_m, data::ABT_t) = sample(ε_greedy_3_model(choice_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
+run_ε_greedy(choice_m, data::ABT_t) = sample(ε_greedy_2_model(choice_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
