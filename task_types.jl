@@ -10,3 +10,11 @@ struct ABT_t
 	R_m::Matrix{Array{Float64,1}}
 	trial_m::Matrix{Int64}
 end
+
+struct PRL_t
+	n_subjects::Int64
+	n_groups::Int64
+	group_v::Array{Int64,1}
+	R_v::Array{Array{Float64,1},1}
+	trial_v::Array{Int64,1}
+end

@@ -6,7 +6,7 @@ using LaTeXStrings
 using DataFrames
 
 include("task_types.jl")
-include("read_abt.jl")
+include("read_data.jl")
 include("softmax.jl")
 include("ε_soft.jl")
 
@@ -142,16 +142,10 @@ end
 
 ArviZ.use_style("arviz-whitegrid")
 
-file_v = [["./abt/ER17_FG7142_trials.csv", "./abt/ER17_2vs1_trials.csv"],
-			["./abt/SS2_FG7142_trials.csv", "./abt/SS2_2vs1_trials.csv"]]
+group_d = Dict("MJ12" => 1, "MJ13" => 2)
 
-cb_file_v = [["./abt/ER17_FG7142_counterbalance.csv", "./abt/ER17_2vs1_counterbalance.csv"],
-			["./abt/SS2_FG7142_counterbalance.csv", "./abt/SS2_2vs1_counterbalance.csv"]]
+(choice_v, data) = read_PRL("./prl/prl.csv", group_d)
 
-group_d = Dict("V" => 1, "FG_0" => 1, "FG_3" => 2, "1" => 1, "2" => 1)
+mdl = softmax_prl_model(choice_v, data)
 
-(choice_m, data) = read_data(file_v, cb_file_v, group_d; only_test = false)
-
-mdl = softmax_2_model(choice_m, data)
-
-plot_trans_violin_softmax(mdl, ["Vehicle", "FG_7142"], "FG")
+plot_trans_violin_softmax(mdl, ["mj12", "mj13"], "PRL")

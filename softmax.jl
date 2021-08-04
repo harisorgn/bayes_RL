@@ -1,3 +1,45 @@
+@model function softmax_prl_model(choice_v, data::PRL_t, ::Type{T} = Float64) where {T <: Real}
+
+	if choice_v === missing
+		choice_v = Array{Array{Int64,1},1}(undef, data.n_subjects)
+
+		for subject = 1 : data.n_subjects
+			choice_v[subject] = [-1 for _ = 1 : data.trial_v[subject]]
+		end
+	end
+
+	β_upper = 10.0 
+	
+	μ_β_v ~ filldist(Normal(0,1), data.n_groups)
+	σ_β_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_groups)
+
+	μ_η_v ~ filldist(Normal(0,1), data.n_groups)
+	σ_η_v ~ filldist(truncated(Cauchy(0,5), 0, Inf), data.n_groups)
+
+	β_norm_v ~ filldist(Normal(0,1), data.n_subjects)
+	η_norm_v ~ filldist(Normal(0,1), data.n_subjects)
+
+	for subject = 1 : data.n_subjects
+
+		r_v = zeros(T, 2)
+
+		g = data.group_v[subject]
+
+		β = cdf(Normal(0,1), μ_β_v[g] + β_norm_v[subject] * σ_β_v[g]) * β_upper
+		η = cdf(Normal(0,1), μ_η_v[g] + η_norm_v[subject] * σ_η_v[g])
+
+		for trial = 1 : data.trial_v[subject]
+		
+			choice_v[subject][trial] ~ BinomialLogit(1, β * (r_v[2] - r_v[1]))
+
+			action = choice_v[subject][trial] + 1
+			
+			r_v[action] += η * (data.R_v[subject][trial] - r_v[action])
+		end
+	end
+
+	return (cdf.(Normal(0,1), μ_β_v) * β_upper, cdf.(Normal(0,1), μ_η_v))
+end
 
 @model function softmax_2_model(choice_m, data::ABT_t, ::Type{T} = Float64) where {T <: Real}
 
@@ -170,4 +212,8 @@ function predict_softmax_2(choice_m, data, chn)
 	return log(l / (n_samples * n_chains))
 end
 
-run_softmax(choice_m, data::ABT_t) = sample(softmax_2_model(choice_m, data), NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
+run_softmax(choice_m, data::ABT_t) = sample(softmax_2_model(choice_m, data), 
+											NUTS(1000, 0.65), MCMCThreads(), 2000, 4)
+
+run_softmax_prl(choice_v, data::PRL_t) = sample(softmax_prl_model(choice_v, data), 
+												NUTS(1000, 0.65), MCMCThreads(), 2000, 4)

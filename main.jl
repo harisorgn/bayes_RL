@@ -4,7 +4,7 @@ using ReverseDiff
 using Serialization
 using FillArrays
 
-include("read_abt.jl")
+include("read_data.jl")
 include("task_types.jl")
 include("softmax.jl")
 include("ε_greedy.jl")
@@ -13,14 +13,8 @@ include("wsls.jl")
 
 Turing.setadbackend(:reversediff)
 
-file_v = [["./abt/ER17_FG7142_trials.csv"],
-			["./abt/SS2_FG7142_trials.csv"]]
+group_d = Dict("MJ12" => 1, "MJ13" => 2)
 
-cb_file_v = [["./abt/ER17_FG7142_counterbalance.csv"],
-			["./abt/SS2_FG7142_counterbalance.csv"]]
+(choice_v, data) = read_PRL("./prl/prl.csv", group_d)
 
-group_d = Dict("V" => 1, "FG_3" => 2)
-
-(choice_m, data) = read_data(file_v, cb_file_v, group_d ; only_test = true)
-
-run_wsls(choice_m, data)
+chn = run_softmax_prl(choice_v, data)
