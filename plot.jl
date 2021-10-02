@@ -68,7 +68,7 @@ end
 
 function plot_trans_violin_ε_soft(mdl, group_name_v, study_name)
 	
-	chn = deserialize(string("./chains/chn_ε_soft_", study_name, "_no2vs1.jls"));
+	chn = deserialize(string("./chains/chn_ε_soft_", study_name, ".jls"));
 
 	gen = generated_quantities(mdl, MCMCChains.get_sections(chn, :parameters))
 
@@ -93,7 +93,7 @@ function plot_trans_violin_ε_soft(mdl, group_name_v, study_name)
 		ax[i].set_title(group_name_v[i]; fontsize = 16)
 	end
 
-	savefig(string("./figures/", "μ_ε_ε_soft_", study_name, "_no2vs1.eps"))
+	savefig(string("./figures/", "μ_ε_ε_soft_", study_name, ".eps"))
 
 
 	ax = plot_violin(idt; var_names = ["μ_η"], textsize = 12, quartiles = false,
@@ -105,7 +105,7 @@ function plot_trans_violin_ε_soft(mdl, group_name_v, study_name)
 		ax[i].set_title(group_name_v[i]; fontsize = 16)
 	end
 
-	savefig(string("./figures/", "μ_η_ε_soft_", study_name, "_no2vs1.eps"))
+	savefig(string("./figures/", "μ_η_ε_soft_", study_name, ".eps"))
 
 
 	ax = plot_violin(idt; var_names = ["μ_s"], textsize = 12, quartiles = false,
@@ -117,7 +117,7 @@ function plot_trans_violin_ε_soft(mdl, group_name_v, study_name)
 		ax[i].set_title(group_name_v[i]; fontsize = 16)
 	end
 
-	savefig(string("./figures/", "μ_s_ε_soft_", study_name, "_no2vs1.eps"))
+	savefig(string("./figures/", "μ_s_ε_soft_", study_name, ".eps"))
 
 
 	for interv_group in group_name_v[2:end]
@@ -135,7 +135,7 @@ function plot_trans_violin_ε_soft(mdl, group_name_v, study_name)
 					textsize = 12, quartiles = false, rug = true, rug_kwargs = Dict("color" => "white", "alpha" => 0), ax = ax[3])
 		ax[3].set_title(L"\Delta \mu_{s}"; fontsize = 16)
 
-		savefig(string("./figures/", "Δ_ε_soft_", interv_group, "_no2vs1.eps"))
+		savefig(string("./figures/", "Δ_ε_soft_", interv_group, ".eps"))
 	end
 	show()
 end

@@ -2,7 +2,7 @@ using DataFrames
 using Serialization
 using PyPlot
 
-include("read_abt.jl")
+include("read_data.jl")
 include("task_types.jl")
 
 file_v = [["./abt/ER17_vfx_trials.csv"],
@@ -13,7 +13,7 @@ cb_file_v = [["./abt/ER17_vfx_counterbalance.csv"],
 
 group_d = Dict("V" => 1, "VFX_3" => 2)
 
-(choice_m, data) = read_data(file_v, cb_file_v, group_d ; only_test = true)
+(choice_m, data) = read_ABT(file_v, cb_file_v, group_d ; only_test = true)
 
 ws_veh_v = Array{Float64,1}(undef, data.n_subjects)
 ws_drug_v = Array{Float64,1}(undef, data.n_subjects)
